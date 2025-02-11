@@ -1,0 +1,61 @@
+﻿indicators:
+  timeframes:
+    "1d":
+      sma: [50, 200]
+      fib_window: 90
+      volatility_window: 20
+    "4h":
+      sma: [20, 50]
+      fib_window: 45
+      volatility_window: 14
+    "1h":
+      sma: [20, 50]
+      fib_window: 30
+      volatility_window: 10
+    "15m":
+      sma: [10, 20]
+      fib_window: 15
+      volatility_window: 7
+  
+  scaling_factors:
+    "1d": 252
+    "4h": 63
+    "1h": 24
+    "15m": 96
+
+zones:
+  pivot_window: 3
+  volume_threshold: 1.5
+  atr_multiplier: 0.5
+  dbscan_eps: 0.02
+  dbscan_min_samples: 1
+
+  # Filtros de mecha (mecha_thr) y body (body_thr)
+  mecha_thr_demand: 0.2
+  mecha_thr_supply: 0.2
+  body_thr_demand: 0.4
+  body_thr_supply: 0.4
+
+  # Para usar fibonacci/volume_delta en el sub-model
+  use_fib: true
+  use_volume_delta: true
+
+  # penalización de frescura
+  freshness_penalty: 0.01
+
+
+context:
+  multi_tf_validation: true
+  overlap_tolerance: 0.02
+
+  # Asignación de zona a vela (la más cercana)
+  assign_zone_to_candles: true
+  zone_assign_dist_mode: "closest_mean"  # "inside_zone" or "closest_mean"
+
+  # Key events (placeholder)
+  use_key_events: false
+  decay_hours: 12
+  # event_impact_model: "path/to/event_model.pkl" (Futuro)
+
+labeling:
+  # ...

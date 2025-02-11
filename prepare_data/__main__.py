@@ -1,74 +1,117 @@
-﻿import os
-import logging
-from download_data.validation import validate_and_correct_data
+﻿# prepare_data/__main__.py
+
+import os
+import sys
+import argparse
+import glob
+import re
+import pandas as pd
+
+# Imports de tus módulos locales
 from prepare_data.indicators import calculate_technical_indicators
-from prepare_data.zones import identify_supply_demand_zones
-from prepare_data.context import validate_cross_temporal_zones, integrate_key_events, calculate_zone_relevance
-from prepare_data.labeling import label_events, add_event_metadata, label_zone_strength, label_zone_type, finalize_labels
-from prepare_data.utils import save_processed_data
-from prepare_data.logs import log_event, configure_logging
+from prepare_data.zones import run_zones_pipeline
+from prepare_data.logs import log_event
 
-# Configuración inicial
-data_dir = "data"
-output_dir = "data_processed"
-configure_logging()
+def main():
+    """
+    Orquestador principal para la etapa 'prepare_data'.
+    - 1) Encontrar archivos '_validated.parquet'
+    - 2) Calcular indicadores -> guarda '_with_indicators.parquet'
+    - 3) Detectar zonas -> guarda '_with_zones.parquet' y '_zones_clusters.parquet'
+    - 4) (a futuro) context, labeling...
+    """
+    parser = argparse.ArgumentParser(description="Orquestador prepare_data")
+    parser.add_argument("--symbol", type=str, help="Símbolo, ej: BTCUSDT", required=False)
+    parser.add_argument("--timeframe", type=str, help="Timeframe, ej: 4h, 1d", required=False)
+    parser.add_argument("--data_dir", type=str, default="data_processed", help="Directorio base donde están los datos")
+    args = parser.parse_args()
 
-log_event("INFO", "Inicio del proceso de preparación de datos", module="main")
+    symbol = args.symbol
+    timeframe = args.timeframe
+    data_dir = args.data_dir
 
-def process_symbol(symbol_dir):
-    symbol_path = os.path.join(data_dir, symbol_dir)
-    if not os.path.isdir(symbol_path):
-        return
+    # 1) Buscar archivos validado
+    # Ejemplo: <symbol>_<timeframe>_..._validated.parquet
+    pattern = "*_validated.parquet"
+    if symbol and timeframe:
+        # filtrar también por symbol y timeframe
+        pattern = f"{symbol}_{timeframe}_*_validated.parquet"
 
-    for timeframe_file in os.listdir(symbol_path):
-        input_filepath = os.path.join(symbol_path, timeframe_file)
-        output_filepath = os.path.join(output_dir, symbol_dir, timeframe_file.replace(".parquet", "_processed.parquet"))
+    validated_files = glob.glob(os.path.join(data_dir, "**", pattern), recursive=True)
+    if not validated_files:
+        print(f"No se encontraron archivos que coincidan con: {pattern} en {data_dir}")
+        sys.exit(0)
 
-        log_event("INFO", f"Procesando archivo: {input_filepath}", module="main")
+    for filepath in validated_files:
+        # Ej: BTCUSDT_4h_20210101_to_20250201_validated.parquet
+        basename = os.path.basename(filepath)
+        # Reemplazar _validated por _with_indicators, etc.
+        # (Podemos usar una regex, o un string replace)
+        file_no_ext = basename.replace(".parquet","")
+        base_name_ind = file_no_ext.replace("_validated","_with_indicators")
+        base_name_zon = file_no_ext.replace("_validated","_with_zones")
+        base_name_zon_clust = file_no_ext.replace("_validated","_zones_clusters")
 
-        try:
-            # Paso 1: Validar y corregir datos
-            df = validate_and_correct_data(input_filepath)
+        # Determinar carpeta de salida (similar a la carpeta donde está el validated)
+        dir_path = os.path.dirname(filepath)
 
-            # Determinar timeframe
-            timeframe = "1d" if "1d" in timeframe_file else "4h" if "4h" in timeframe_file else "1h" if "1h" in timeframe_file else "15m"
-            
-            # Paso 2: Calcular indicadores técnicos
-            df = calculate_technical_indicators(df, timeframe)
-            
-            # Paso 3: Identificar zonas de oferta y demanda
-            if timeframe in ["4h", "1d"]:
-                df = identify_supply_demand_zones(df)
-                
-            # Paso 4: Validar zonas entre temporalidades (4H y 1D)
-            if timeframe == "4h":
-                df_1d_filepath = os.path.join(output_dir, symbol_dir, timeframe_file.replace("4h", "1d"))
-                if os.path.exists(df_1d_filepath):
-                    df_1d = validate_and_correct_data(df_1d_filepath)
-                    df, df_1d = validate_cross_temporal_zones(df, df_1d)
-                    save_processed_data(df_1d, df_1d_filepath)
-                    log_event("INFO", "Validación cruzada 4H-1D completada", module="main")
-            
-            # Paso 5: Integrar eventos clave y calcular relevancia de zonas
-            df = integrate_key_events(df, [])  # Se debe definir la lista de eventos clave
-            df = calculate_zone_relevance(df)
-            
-            # Paso 6: Etiquetado de eventos y zonas
-            df = label_events(df)
-            df = add_event_metadata(df)
-            df = label_zone_strength(df)
-            df = label_zone_type(df)
-            df = finalize_labels(df)
-            
-            # Paso 7: Guardar datos procesados
-            save_processed_data(df, output_filepath)
-            log_event("INFO", f"Datos procesados guardados en: {output_filepath}", module="main")
-        
-        except Exception as e:
-            log_event("ERROR", f"Error procesando {input_filepath}: {str(e)}", module="main")
+        output_indicators_path = os.path.join(dir_path, f"{base_name_ind}.parquet")
+        output_zones_path      = os.path.join(dir_path, f"{base_name_zon}.parquet")
+        output_clusters_path   = os.path.join(dir_path, f"{base_name_zon_clust}.parquet")
 
-log_event("INFO", "Proceso de preparación de datos completado", module="main")
+        log_event("INFO", f"Procesando: {filepath}", module="main_prepare_data")
+
+        # 2) Leer df validado
+        df_valid = pd.read_parquet(filepath)
+
+        # (Opción) Inferir timeframe si no se pasó
+        # pero si ya se hace con symbol/timeframe, se omite
+
+        # 3) Calcular INDICATORS
+        log_event("INFO", "Calculando indicadores...", module="main_prepare_data")
+        df_ind = calculate_technical_indicators(df_valid, timeframe or infer_timeframe_from_name(basename))
+        if df_ind is None:
+            log_event("ERROR", "Fallo en calculate_technical_indicators, skip archivo", module="main_prepare_data")
+            continue
+
+        # Guardar _with_indicators
+        df_ind.to_parquet(output_indicators_path, index=False)
+        log_event("INFO", f"Guardado: {output_indicators_path}", module="main_prepare_data")
+
+        # 4) Detectar ZONAS
+        log_event("INFO", "Detectando zonas...", module="main_prepare_data")
+        df_main, df_zones = run_zones_pipeline(df_ind)
+
+        # Guardar df_main => _with_zones
+        df_main.to_parquet(output_zones_path, index=False)
+        log_event("INFO", f"Guardado: {output_zones_path}", module="main_prepare_data")
+
+        # Guardar df_zones => _zones_clusters
+        df_zones.to_parquet(output_clusters_path, index=False)
+        log_event("INFO", f"Guardado: {output_clusters_path}", module="main_prepare_data")
+
+        # Podrías continuar con context, labeling, etc. en otros pasos
+        log_event("INFO", f"Pipeline completado para {basename}", module="main_prepare_data")
+
+
+def infer_timeframe_from_name(filename: str) -> str:
+    """
+    Pequeño helper para extraer la TF (1d,4h,1h,15m) del nombre del archivo
+    si no se pasa como argumento.
+    """
+    fname = filename.lower()
+    if "1d" in fname:
+        return "1d"
+    elif "4h" in fname:
+        return "4h"
+    elif "1h" in fname:
+        return "1h"
+    elif "15m" in fname:
+        return "15m"
+    return "1h"  # fallback
 
 if __name__ == "__main__":
-    for symbol_dir in os.listdir(data_dir):
-        process_symbol(symbol_dir)
+    main()
+
+
+#HAY QUE CONTINUARLO PARA INTEGRAR CONTEXT, LABELING Y TMB LOG Y UTILS

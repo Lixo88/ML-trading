@@ -1,5 +1,6 @@
 ﻿# main.py
 import os
+import sys
 import argparse
 import yaml
 import pandas as pd
@@ -81,10 +82,27 @@ def process_symbol(symbol: str, config: Dict, data_dir: str, output_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Trading Data Pipeline")
-    parser.add_argument('--config', default='config/main_config.yaml', help='Main config file')
-    parser.add_argument('--data_dir', default='data/validated', help='Input data directory')
-    parser.add_argument('--output_dir', default='data/processed', help='Output directory')
-    parser.add_argument('--symbols', nargs='+', default=['BTCUSDT'], help='Symbols to process')
+    parser.add_argument(
+        '--config', 
+        default='prepare_data_config.yaml',
+        help='Ruta al archivo de configuración principal (default: prepare_data_config.yaml)'
+    )
+    parser.add_argument(
+        '--data_dir', 
+        default='data/validated',
+        help='Directorio de datos validados (default: data/validated)'
+    )
+    parser.add_argument(
+        '--output_dir', 
+        default='data/processed',
+        help='Directorio de salida procesado (default: data/processed)'
+    )
+    parser.add_argument(
+        '--symbols', 
+        nargs='+', 
+        default=['BTCUSDT'],
+        help='Símbolos a procesar separados por espacios (default: BTCUSDT)'
+    )
     
     args = parser.parse_args()
     
@@ -92,19 +110,18 @@ def main():
         config = load_config(args.config)
         os.makedirs(args.output_dir, exist_ok=True)
         
-        # Validar estructura de directorios
         if not os.path.exists(args.data_dir):
-            raise FileNotFoundError(f"Data directory {args.data_dir} not found")
+            raise FileNotFoundError(f"Directorio de datos no encontrado: {args.data_dir}")
         
-        # Procesar símbolos en paralelo
         Parallel(n_jobs=2)(delayed(process_symbol)(
             symbol, config, args.data_dir, args.output_dir
         ) for symbol in args.symbols)
         
-        logger.log_event('INFO', "Pipeline execution completed", "main")
+        logger.log_event("INFO", "Pipeline ejecutado exitosamente", "main")
+        
     except Exception as e:
-        logger.log_event('CRITICAL', f"Fatal pipeline error: {str(e)}", "main")
-        raise
+        logger.log_event("CRITICAL", f"Error fatal: {str(e)}", "main")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,43 @@
+﻿symbols: [BTCUSDT, ETHUSDT]
+timeframes: [1d, 4h, 1h, 15m]
+
+indicators:
+  timeframes:
+    "1d":
+      sma: [50, 200]
+      fib_window: 90
+      volatility_window: 20
+      adx_threshold: 25
+    "4h":
+      sma: [20, 50]
+      fib_window: 45
+      volatility_window: 14
+      adx_threshold: 25
+    # ... (similar para otros timeframes)
+  
+  scaling_factors:
+    "1d": 252
+    "4h": 63
+    "1h": 24
+    "15m": 96
+
+zones:
+  pivot_window: 3
+  atr_multiplier: 1.5
+  dbscan_eps: 0.02
+  volume_zscore_threshold: 2.0
+  strength_weights: [0.4, 0.3, 0.2, 0.1]  # repetitions, volume, fib, freshness
+
+context:
+  multi_tf_validation: true
+  liquidity_window: 20
+  event_strength_boost: 0.3
+
+labeling:
+  horizons:
+    "1d": 5
+    "4h": 6
+    "1h": 12
+    "15m": 24
+  consolidation_window: 5
+  false_breakout_window: 3

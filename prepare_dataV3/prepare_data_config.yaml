@@ -1,0 +1,96 @@
+﻿""
+#prepare_data/prepare_data_config.yaml
+
+symbols: [BTCUSDT, ETHUSDT]
+timeframes: [1d, 4h, 1h, 15m]
+
+indicators:
+  timeframes:
+    "1d":
+      sma: [50, 200]
+      fib_window: 90
+      volatility_window: 20
+      adx_threshold: 25
+    "4h":
+      sma: [20, 50]
+      fib_window: 45
+      volatility_window: 14
+      adx_threshold: 25
+    "1h":
+      sma: [20, 50]
+      fib_window: 30
+      volatility_window: 10
+      adx_threshold: 20
+    "15m":
+      sma: [10, 20]
+      fib_window: 15
+      volatility_window: 7
+      adx_threshold: 20
+  
+  scaling_factors:
+    "1d": 252
+    "4h": 63
+    "1h": 24
+    "15m": 96
+
+zones:
+  pivot_window: 3
+  atr_multiplier: 1.5
+  volume_approach: "zscore"  # or "relative"
+  volume_threshold: 1.5
+  volume_zscore_threshold: 2.0
+
+  mecha_thr_demand: 0.2
+  mecha_thr_supply: 0.2
+  body_thr_demand: 0.0
+  body_thr_supply: 0.0
+
+  use_power_transform: true
+  use_quantile_transform: true
+  dbscan_eps: 0.02
+  min_samples_factor: 0.05  # 5% de pivots => min_samples
+
+  use_fib: true
+  use_volume_delta: true
+  repetition_window: 90
+  freshness_penalty: 0.01
+  strength_weights: [0.4, 0.3, 0.2, 0.1]  # reps, volume, fresh, fib?
+
+context:
+  multi_tf_validation: true
+  overlap_tolerance: 0.02
+
+  use_key_events: false  # placeholder
+  event_impact_weight: 0.3
+
+  use_liquidity_profile: true
+  liquidity_window: 20
+  price_tolerance: 0.02  # ±2%
+
+  # Pesos para zone_relevance
+  strength_weight: 1.0
+  validation_weight: 1.0
+
+  # Asignar zona a velas
+  assign_zone_to_candles: true
+
+labeling:
+  main_timeframe: "4h"
+  higher_tf: "1d"
+  lower_tfs: ["1h","15m"]
+
+  start_date: "2021-01-01"
+  end_date: "2022-01-01"
+
+  rebote_window: 3
+  rebote_threshold: 0.015      # 1.5% 
+  breakout_window: 3
+  breakout_threshold: 0.01
+  false_breakout_window: 2
+  # etc
+
+  # Ruta final
+  output_dir: "data_ml"
+
+  # Podrías poner merges freq, param for aggregator...
+  main_timeframe_freq: "4H"

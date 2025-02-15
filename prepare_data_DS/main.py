@@ -1,4 +1,4 @@
-﻿# main.py
+﻿# prepare_data/main.py
 import os
 import sys
 import argparse

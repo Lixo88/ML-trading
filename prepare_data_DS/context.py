@@ -1,4 +1,5 @@
-﻿from intervaltree import Interval, IntervalTree
+﻿# prepare_data/context.py
+from intervaltree import Interval, IntervalTree
 import pandas as pd
 import numpy as np
 from prepare_data.logs import log_event, log_feature_stats
